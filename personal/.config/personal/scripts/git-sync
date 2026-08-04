@@ -32,13 +32,77 @@ MAIN_SHA=$(git rev-parse --short origin/main)
 # Replace forward slashes with dashes for the working branch name
 # (e.g., 'release/1.12.x' becomes 'release-1.12.x')
 SAFE_BRANCH_SUFFIX=${TARGET_BRANCH//\//-}
-BRANCH_NAME="hotfix/CURE-0/sync-${SAFE_BRANCH_SUFFIX}-${MAIN_SHA}"
+BRANCH_NAME="chore/CURE-0/sync-${SAFE_BRANCH_SUFFIX}"
 
-git checkout --no-track -b "${BRANCH_NAME}" "${RELEASE_REF}"
-git merge origin/main
+# 1. Check if the branch exists locally or on remote
+if git show-ref --verify --quiet "refs/heads/${BRANCH_NAME}"; then
+  echo "Branch '${BRANCH_NAME}' already exists locally. Checking it out..."
+  git checkout "${BRANCH_NAME}"
+elif git show-ref --verify --quiet "refs/remotes/origin/${BRANCH_NAME}"; then
+  echo "Branch '${BRANCH_NAME}' exists on remote. Checking it out..."
+  git checkout --track "origin/${BRANCH_NAME}"
+else
+  echo "Creating new branch '${BRANCH_NAME}'..."
+  git checkout --no-track -b "${BRANCH_NAME}" "${RELEASE_REF}"
+fi
 
-gh pr create \
-  --title "chore: sync main at ${MAIN_SHA}" \
-  --body "Syncing with main at commit: ${MAIN_SHA}" \
-  --base "${TARGET_BRANCH}" \
-  --web
+# 2. Attempt the squash merge safely
+EXPECTED_MSG="chore: sync main at ${MAIN_SHA}"
+LAST_COMMIT_MSG=$(git log -1 --pretty=%s || echo "")
+
+if [[ "${LAST_COMMIT_MSG}" == "${EXPECTED_MSG}" ]]; then
+  echo "Branch is already synced with main at ${MAIN_SHA}."
+else
+  echo "Squash merging origin/main..."
+
+  if ! git merge --squash origin/main; then
+    echo "===================================================================="
+    echo "⚠️  MERGE CONFLICT DETECTED."
+    echo "Please resolve the conflicts, commit the results using:"
+    echo ""
+    echo "  git commit -m \"${EXPECTED_MSG}\""
+    echo ""
+    echo "and run this script again to push and create/update the Pull Request."
+    echo "===================================================================="
+    exit 1
+  fi
+
+  # If there are changes staged by the squash merge, commit them
+  if ! git diff --cached --quiet; then
+    echo "Committing squashed changes..."
+    git commit -m "${EXPECTED_MSG}"
+  else
+    echo "No new differences found. Nothing to merge."
+  fi
+fi
+
+# 3. Push the branch to the remote
+echo "Pushing branch to origin..."
+git push -u origin "${BRANCH_NAME}"
+
+# 4. Check if an open PR already exists for this exact branch
+EXISTING_PR_NUMBER=$(gh pr list \
+  --head "${BRANCH_NAME}" \
+  --state open \
+  --json number \
+  --jq '.[0].number')
+
+# 5. Create or Update the PR
+if [[ -n "${EXISTING_PR_NUMBER}" && "${EXISTING_PR_NUMBER}" != "null" ]]; then
+  echo "Updating existing Pull Request #${EXISTING_PR_NUMBER}..."
+
+  gh pr edit "${EXISTING_PR_NUMBER}" \
+    --title "${EXPECTED_MSG}" \
+    --body "Syncing with main at commit: ${MAIN_SHA}"
+
+  # Open the existing PR in the browser
+  gh pr view "${EXISTING_PR_NUMBER}" --web
+else
+  echo "Creating new Pull Request..."
+
+  gh pr create \
+    --title "${EXPECTED_MSG}" \
+    --body "Syncing with main at commit: ${MAIN_SHA}" \
+    --base "${TARGET_BRANCH}" \
+    --web
+fi
