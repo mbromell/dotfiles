@@ -32,7 +32,7 @@ MAIN_SHA=$(git rev-parse --short origin/main)
 # Replace forward slashes with dashes for the working branch name
 # (e.g., 'release/1.12.x' becomes 'release-1.12.x')
 SAFE_BRANCH_SUFFIX=${TARGET_BRANCH//\//-}
-BRANCH_NAME="chore/CURE-0/sync-${SAFE_BRANCH_SUFFIX}"
+BRANCH_NAME="hotfix/CURE-0/sync-${SAFE_BRANCH_SUFFIX}"
 
 # 1. Check if the branch exists locally or on remote
 if git show-ref --verify --quiet "refs/heads/${BRANCH_NAME}"; then
@@ -56,6 +56,11 @@ else
   echo "Squash merging origin/main..."
 
   if ! git merge --squash origin/main; then
+    # Completely remove the auto-generated squash message body.
+    # This ensures that if you manually type `git commit` after resolving
+    # conflicts, it won't accidentally pull in tags like [skip ci].
+    rm -f .git/SQUASH_MSG
+
     echo "===================================================================="
     echo "⚠️  MERGE CONFLICT DETECTED."
     echo "Please resolve the conflicts, commit the results using:"
@@ -66,6 +71,9 @@ else
     echo "===================================================================="
     exit 1
   fi
+
+  # Clear it out even on a successful merge, just to be strictly safe.
+  rm -f .git/SQUASH_MSG
 
   # If there are changes staged by the squash merge, commit them
   if ! git diff --cached --quiet; then
