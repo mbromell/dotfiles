@@ -1,7 +1,7 @@
 local wezterm = require("wezterm")
 local M = {}
 
-M.dark = "Catppuccin Mocha"
+M.dark = "Catppuccin Macchiato"
 M.light = "Catppuccin Latte"
 
 function M.scheme_name(appearance)
