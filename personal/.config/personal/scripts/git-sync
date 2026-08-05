@@ -55,11 +55,12 @@ if [[ "${LAST_COMMIT_MSG}" == "${EXPECTED_MSG}" ]]; then
 else
   echo "Squash merging origin/main..."
 
+  # Get the actual path to the git directory (handles worktrees/submodules safely)
+  GIT_DIR=$(git rev-parse --git-dir)
+
   if ! git merge --squash origin/main; then
     # Completely remove the auto-generated squash message body.
-    # This ensures that if you manually type `git commit` after resolving
-    # conflicts, it won't accidentally pull in tags like [skip ci].
-    rm -f .git/SQUASH_MSG
+    rm -f "${GIT_DIR}/SQUASH_MSG"
 
     echo "===================================================================="
     echo "⚠️  MERGE CONFLICT DETECTED."
@@ -73,7 +74,7 @@ else
   fi
 
   # Clear it out even on a successful merge, just to be strictly safe.
-  rm -f .git/SQUASH_MSG
+  rm -f "${GIT_DIR}/SQUASH_MSG"
 
   # If there are changes staged by the squash merge, commit them
   if ! git diff --cached --quiet; then

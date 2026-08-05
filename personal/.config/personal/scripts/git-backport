@@ -71,14 +71,15 @@ fi
 # MODE 2: CREATE NEW BACKPORT PR
 # ==========================================
 if [ "$#" -lt 2 ]; then
-  echo "Usage (Create PR Mode): $0 <release-branch> <commit-sha-1> [commit-sha-2] ..."
+  echo "Usage (Create PR Mode): $0 <version> <commit-sha-1> [commit-sha-2] ..."
   echo "Example: $0 1.10 8a3f9e2 c4d5e6f"
   exit 1
 fi
 
-RELEASE_BRANCH=$1
+VERSION=$1
 shift
 SHAS=("$@") # Store all remaining arguments as an array of SHAs
+RELEASE_BRANCH="release/${VERSION}.x"
 
 # Extract the very first SHA to base the branch name on
 FIRST_SHA="${SHAS[0]}"
