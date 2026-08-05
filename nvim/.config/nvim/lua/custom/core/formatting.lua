@@ -26,6 +26,7 @@ return {
         markdown = { "mdformat" },
         python = { "ruff_organize_imports", "ruff_format" },
         sh = { "shfmt" },
+        terraform = { "terraform_fmt" },
         typescript = { "biome-check" },
         typescriptreact = { "biome-check" },
       },
